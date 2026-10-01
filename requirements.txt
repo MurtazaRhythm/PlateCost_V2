@@ -1,0 +1,6 @@
+google-genai
+supabase
+pydantic
+pillow
+python-dotenv
+sentry-sdk
