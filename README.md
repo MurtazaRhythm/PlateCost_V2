@@ -1,4 +1,4 @@
-# PlateCost Core
+# PlateCost_V2
 
 Reads photographed receipts with Gemini and stores the vendor, date, line items, taxes and totals in Supabase.
 
@@ -13,7 +13,7 @@ receipts/
 supabase/schema.sql     Tables and storage bucket (run once in the SQL editor)
 scripts/
   organize_receipts.ps1 One-off: de-duplicate and rename photos in a folder
-Receipt demos/          One subfolder per receipt, photos in top-to-bottom order
+Receipt demos/          One subfolder per receipt, photos in top-to-bottom order (not committed)
 ```
 
 ## Setup
