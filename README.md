@@ -1,37 +1,40 @@
-# PlateCost_V2
+# PlateCost
 
-Reads photographed receipts with Gemini and stores the vendor, date, line items, taxes and totals in Supabase.
+Restaurant bookkeeping. Photograph a receipt in a few sections, and PlateCost reads it with Gemini and files the expense in Supabase.
 
-## Layout
+One physical receipt is one `receipt_session`. Every photo on that receipt shares the session and keeps its top-to-bottom `sequence_number`. The phone and the future receipt device both send images into the same session API.
 
-```
-process_receipts.py     Command-line entry point
-receipts/
-  models.py             Receipt schema, date and totals checks
-  extract.py            Image prep and Gemini extraction
-  store.py              Supabase Storage upload and database save
-supabase/schema.sql     Tables and storage bucket (run once in the SQL editor)
-scripts/
-  organize_receipts.ps1 One-off: de-duplicate and rename photos in a folder
-Receipt demos/          One subfolder per receipt, photos in top-to-bottom order (not committed)
-```
-
-## Setup
+## Mobile app
 
 ```powershell
-python -m venv .venv
 .\.venv\Scripts\python -m pip install -r requirements.txt
-copy .env.example .env   # then fill in the values
+npm install --prefix web
+copy .env.example .env   # fill in Gemini and Supabase keys
 ```
 
-Run `supabase/schema.sql` once in the Supabase SQL editor.
+Run `supabase/schema.sql` once in the Supabase SQL editor, then `supabase/migrations/20261002_receipt_sessions.sql` if the project was created before receipt sessions existed.
 
-## Usage
+Start the API and the app in two terminals:
 
 ```powershell
-.\.venv\Scripts\python process_receipts.py                 # all receipt folders
-.\.venv\Scripts\python process_receipts.py --folder ROne   # one folder
-.\.venv\Scripts\python process_receipts.py --dry-run       # print results, save nothing
+.\.venv\Scripts\python -m uvicorn server.main:app --host 127.0.0.1 --port 8000
+npm run dev --prefix web
 ```
 
-Re-running updates existing receipts rather than duplicating them. Errors, warnings and timings go to Sentry Spotlight when it is running locally.
+If port 8000 is already taken, start the API on another port and set `API_PROXY_TARGET=http://127.0.0.1:8010` in `web/.env.local`.
+
+Open http://localhost:3000 on your phone or computer, create an account, and tap **Capture Receipt**. The browser camera is used when the page is a secure context (localhost or HTTPS). Otherwise **Capture** opens the phone's camera directly.
+
+`POST /api/receipt-sessions/{session_id}/process` loads that session's images in sequence order, sends them to Gemini as one receipt, and stores the result. Gemini and the Supabase service role stay on the server.
+
+## Folder pipeline
+
+The original folder workflow still uses the same extraction code:
+
+```powershell
+.\.venv\Scripts\python process_receipts.py
+.\.venv\Scripts\python process_receipts.py --folder ROne
+.\.venv\Scripts\python process_receipts.py --dry-run
+```
+
+Each subfolder of `Receipt demos` is one receipt, with photos in top-to-bottom filename order.

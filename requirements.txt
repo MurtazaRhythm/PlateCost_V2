@@ -4,3 +4,7 @@ pydantic
 pillow
 python-dotenv
 sentry-sdk
+fastapi
+uvicorn
+python-multipart
+tzdata

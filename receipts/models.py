@@ -11,7 +11,11 @@ class LineItem(BaseModel):
     unit: str | None = Field(None, description="Unit for the quantity, e.g. 'ea', 'kg', 'lb'.")
     unit_price: float | None = Field(None, description="Price per unit.")
     total_price: float | None = Field(None, description="Line total after any item-level discount. Negative for refunds/discount lines.")
-    category: str | None = Field(None, description="Short category guess, e.g. 'produce', 'meat', 'dairy', 'dry goods', 'beverage', 'supplies'.")
+    category: str | None = Field(
+        None,
+        description="Restaurant purchasing category: Food Inventory, Beverage, Cleaning Supplies, Paper Goods, Smallwares, Equipment, or Other.",
+    )
+    confidence: float | None = Field(None, description="Confidence from 0 to 1 that this line was read correctly.")
 
 
 class TaxLine(BaseModel):
@@ -38,6 +42,10 @@ class Receipt(BaseModel):
     total: float | None = Field(None, description="Final amount paid.")
     payment_method: str | None = Field(None, description="e.g. 'Visa', 'Mastercard', 'Debit', 'Cash'.")
     card_last4: str | None = Field(None, description="Last 4 digits of the card if printed.")
+    category: str | None = Field(
+        None,
+        description="Restaurant purchasing category for the receipt as a whole. Use the category that covers the majority of the spend: Food Inventory, Beverage, Cleaning Supplies, Paper Goods, Smallwares, Equipment, or Other.",
+    )
 
 
 def _date_candidates(printed: str, today: date) -> list[date]:

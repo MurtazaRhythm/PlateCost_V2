@@ -17,7 +17,9 @@ MAX_ATTEMPTS = 5
 RETRYABLE_CODES = {429, 500, 503, 504}
 
 PROMPT = """\
-The {count} images above are consecutive photos of ONE long paper receipt, in order from top (part 1) to bottom (part {count}).
+These images are sequential sections of the same physical restaurant receipt. Treat all images as one receipt. Combine the information across all images. Do not duplicate items that appear in overlapping sections. Return one structured receipt object.
+
+The {count} images above are consecutive photos of that receipt, in order from top (part 1) to bottom (part {count}).
 Neighbouring photos usually overlap, so the same printed lines can appear at the bottom of one photo and the top of the next.
 
 Read the whole receipt and extract it as a single record:
@@ -25,6 +27,7 @@ Read the whole receipt and extract it as a single record:
 - Keep line items in printed order. Include discount/coupon lines as items with a negative total_price.
 - Copy numbers exactly as printed. Do not compute or invent values that are not on the receipt; use null when something is missing or unreadable.
 - List each tax separately in taxes, and put the overall tax amount in tax_total.
+- Set category to the restaurant purchasing category that best describes the receipt as a whole: Food Inventory, Beverage, Cleaning Supplies, Paper Goods, Smallwares, Equipment, or Other. Use those same categories on each line item.
 - Dates: a two-digit year means 20YY. Canadian card terminals often print YY/MM/DD (e.g. "26/09/02" is 2026-09-02).
   Use the date format that gives a plausible date on or before today ({today}); never substitute the current year for a printed one.
 """
@@ -38,8 +41,8 @@ def list_images(folder: Path) -> list[Path]:
     return sorted((p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS), key=_natural_key)
 
 
-def _prepare_image(path: Path) -> bytes:
-    with Image.open(path) as img:
+def _prepare_image_bytes(data: bytes) -> bytes:
+    with Image.open(io.BytesIO(data)) as img:
         img = ImageOps.exif_transpose(img).convert("RGB")
         img.thumbnail((MAX_SIDE_PX, MAX_SIDE_PX))
         buf = io.BytesIO()
@@ -47,14 +50,19 @@ def _prepare_image(path: Path) -> bytes:
         return buf.getvalue()
 
 
-def extract_receipt(client: genai.Client, model: str, images: list[Path]) -> Receipt:
+def _prepare_image(path: Path) -> bytes:
+    return _prepare_image_bytes(path.read_bytes())
+
+
+def extract_receipt_bytes(client: genai.Client, model: str, images: list[bytes]) -> Receipt:
+    """Extract one receipt from ordered image bytes. Images are sections of a single receipt."""
     if not images:
         raise ValueError("No images to extract from.")
 
     contents: list = []
-    for i, path in enumerate(images, start=1):
+    for i, data in enumerate(images, start=1):
         contents.append(f"Part {i} of {len(images)}:")
-        contents.append(types.Part.from_bytes(data=_prepare_image(path), mime_type="image/jpeg"))
+        contents.append(types.Part.from_bytes(data=_prepare_image_bytes(data), mime_type="image/jpeg"))
     contents.append(PROMPT.format(count=len(images), today=date.today().isoformat()))
 
     config = types.GenerateContentConfig(
@@ -79,3 +87,7 @@ def extract_receipt(client: genai.Client, model: str, images: list[Path]) -> Rec
     if not response.text:
         raise RuntimeError(f"Gemini returned no content (finish reason: {response.candidates[0].finish_reason if response.candidates else 'unknown'}).")
     return Receipt.model_validate_json(response.text)
+
+
+def extract_receipt(client: genai.Client, model: str, images: list[Path]) -> Receipt:
+    return extract_receipt_bytes(client, model, [path.read_bytes() for path in images])

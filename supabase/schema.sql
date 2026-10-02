@@ -1,4 +1,5 @@
--- Run once in the Supabase SQL editor.
+-- Fresh database: run this file, then supabase/migrations/20261002_receipt_sessions.sql.
+-- The migration adds restaurants, receipt sessions, and owner read policies.
 
 create table if not exists public.receipts (
     id              uuid primary key default gen_random_uuid(),
@@ -57,7 +58,7 @@ create index if not exists receipt_items_receipt_id_idx  on public.receipt_items
 create index if not exists receipt_taxes_receipt_id_idx  on public.receipt_taxes (receipt_id);
 create index if not exists receipt_images_receipt_id_idx on public.receipt_images (receipt_id);
 
--- No policies are defined, so only the service role key can read or write these tables.
+-- Writes use the service role. Owner read policies are added with receipt sessions.
 alter table public.receipts       enable row level security;
 alter table public.receipt_items  enable row level security;
 alter table public.receipt_taxes  enable row level security;
